@@ -21,24 +21,39 @@ watch([breakpoints.sm, breakpoints.md, breakpoints.lg, breakpoints.xl, breakpoin
     fitViews()
   }, 5),
 )
+
+const show = ref(false)
 </script>
 <template>
   <div class="w-full dark:(bg-black text-white)">
     <div
       class="flex flex-col divide-y divide-gray-500 md:divide-y-0 gap-12 md:gap-24 lg:gap-36 max-w-9/12 md:max-w-11/12 lg:max-w-9/12 m-auto py-12 md:py-24 text-center md:text-left"
     >
-      <div class="flex flex-col md:flex-row gap-12 md:gap-24">
-        <Basic @pane="onLoad" />
+      <div ref="basic">
+        <XyzTransition xyz="fade left ease-out-back">
+          <div class="flex flex-col md:flex-row gap-12 md:gap-24">
+            <Basic @pane="onLoad" />
+          </div>
+        </XyzTransition>
       </div>
-      <div class="flex flex-col-reverse md:flex-row flex-unwrap gap-12 md:gap-24">
-        <RGB @pane="onLoad" />
-      </div>
-      <div class="flex flex-col md:flex-row flex-unwrap gap-12 md:gap-24">
-        <Nested @pane="onLoad" />
-      </div>
-      <div class="flex flex-col-reverse md:flex-row flex-unwrap gap-12 md:gap-24">
-        <Additional @pane="onLoad" />
-      </div>
+
+      <XyzTransition appear-visible xyz="fade down ease-out-back">
+        <div @click="() => (show = true)" class="flex flex-col-reverse md:flex-row flex-unwrap gap-12 md:gap-24">
+          <RGB @pane="onLoad" />
+        </div>
+      </XyzTransition>
+
+      <XyzTransition appear-visible xyz="fade down ease-out-back">
+        <div class="flex flex-col md:flex-row flex-unwrap gap-12 md:gap-24">
+          <Nested @pane="onLoad" />
+        </div>
+      </XyzTransition>
+
+      <XyzTransition appear-visible xyz="fade down ease-out-back">
+        <div class="flex flex-col-reverse md:flex-row flex-unwrap gap-12 md:gap-24">
+          <Additional @pane="onLoad" />
+        </div>
+      </XyzTransition>
     </div>
   </div>
 </template>
