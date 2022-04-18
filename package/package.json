@@ -24,22 +24,25 @@
   "scripts": {
     "prepare": "ts-patch install -s",
     "build": "vite build",
-    "types": "yarn prepare && vue-tsc --declaration --emitDeclarationOnly && tsc -p tsconfig.build.json && shx rm -rf tmp && yarn lint:dist",
+    "types": "pnpm prepare && vue-tsc --declaration --emitDeclarationOnly && tsc -p tsconfig.build.json && shx rm -rf tmp && pnpm lint:dist",
     "typedoc": "typedoc --tsconfig tsconfig.docs.json dist/index.d.ts --out typedocs",
     "theme": "postcss src/style.css -o dist/style.css && postcss src/theme-default.css -o dist/theme-default.css",
     "lint": "eslint --ext \".js,.jsx,.ts,.tsx\" --fix --ignore-path ../.gitignore .",
     "lint:dist": "eslint --ext \".ts,.tsx\" -c .eslintrc.js --fix ./dist",
     "prepublishOnly": "shx cp ../README.md .",
-    "release": "yarn np",
+    "release": "np",
     "postpublish": "shx rm README.md"
   },
   "dependencies": {
     "@braks/revue-draggable": "^0.4.2",
     "@types/d3": "^7.1.0",
+    "@vue/compiler-sfc": "3.2.25",
     "@vueuse/core": "^8.2.5",
     "d3": "^7.4.2",
     "d3-selection": "^3.0.0",
-    "d3-zoom": "^3.0.0"
+    "d3-zoom": "^3.0.0",
+    "rollup": ">=2.50.0 <3.0.0",
+    "vue": "3.2.25"
   },
   "devDependencies": {
     "@rollup/plugin-replace": "^2.4.2",
