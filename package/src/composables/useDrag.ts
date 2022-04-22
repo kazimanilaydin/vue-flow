@@ -1,18 +1,15 @@
-import { D3DragEvent, drag, SubjectPosition } from 'd3-drag'
-import { select } from 'd3-selection'
 import { Ref } from 'vue'
 import { MaybeRef } from '@vueuse/core'
 import useVueFlow from './useVueFlow'
 import { pointToRendererPoint } from '~/utils'
 import { GraphNode, XYPosition } from '~/types'
 
-export type UseDragEvent = D3DragEvent<HTMLDivElement, null, SubjectPosition>
 export type UseDragData = { dx: number; dy: number }
 
 type UseDragParams = {
-  onStart: (event: UseDragEvent) => void
-  onDrag: (event: UseDragEvent, data: UseDragData) => void
-  onStop: (event: UseDragEvent) => void
+  onStart: (event: PointerEvent) => void
+  onDrag: (event: PointerEvent, data: UseDragData) => void
+  onStop: (event: PointerEvent) => void
   el: Ref<Element>
   disabled?: MaybeRef<boolean>
   noDragClassName?: MaybeRef<string>
@@ -20,7 +17,7 @@ type UseDragParams = {
   id?: string
 }
 
-function getOffset(event: UseDragEvent, el: Element): XYPosition {
+function getOffset(event: PointerEvent, el: Element): XYPosition {
   const bounds = el.getBoundingClientRect() || { x: 0, y: 0 }
   const parent = (el as HTMLDivElement).offsetParent
   const parentBounds = parent?.getBoundingClientRect() || { x: 0, y: 0 }
@@ -50,55 +47,61 @@ function useDrag(params: UseDragParams) {
     [() => disabled, () => noDragClassName, () => id, () => el],
     () => {
       if (el) {
-        const selection = select(el)
         const node = id ? getNode.value(id) : undefined
 
-        if (disabled) {
-          selection.on('.drag', null)
-        } else {
-          const dragHandler = drag()
-            .on('start', (event: UseDragEvent) => {
-              const offset = getOffset(event, el)
-              parentPos = getParentNodePosition(node && node.parentNode ? getNode.value(node!.parentNode!) : undefined)
+        useDraggable(el as HTMLDivElement, {
+          preventDefault: true,
+          stopPropagation: true,
+          onStart(position, event) {
+            if ((event.target as Element).className.includes(noDragClassName as any)) return
+            if (disabled) return
 
-              startPos = {
-                x: offset.x - viewport.value.x,
-                y: offset.y - viewport.value.y,
+            const offset = getOffset(event, el)
+            parentPos = getParentNodePosition(node && node.parentNode ? getNode.value(node!.parentNode!) : undefined)
+
+            startPos = {
+              x: offset.x - viewport.value.x,
+              y: offset.y - viewport.value.y,
+            }
+
+            onStart(event)
+          },
+          onMove(position, event) {
+            if ((event.target as Element).className.includes(noDragClassName as any)) return
+            if (disabled) return
+
+            const pos = pointToRendererPoint(
+              {
+                x: event.x - startPos.x,
+                y: event.y - startPos.y,
+              },
+              viewport.value,
+              snapToGrid.value,
+              snapGrid.value,
+            )
+
+            pos.x -= parentPos.x
+            pos.y -= parentPos.y
+
+            // skip events without movement
+            if (lastPos.x !== pos.x || lastPos.y !== pos.y) {
+              if (lastPos.x && lastPos.y) {
+                onDrag(event, {
+                  dx: pos.x - lastPos.x,
+                  dy: pos.y - lastPos.y,
+                })
               }
 
-              onStart(event)
-            })
-            .on('drag', (event: UseDragEvent) => {
-              const pos = pointToRendererPoint(
-                {
-                  x: event.x - startPos.x,
-                  y: event.y - startPos.y,
-                },
-                viewport.value,
-                snapToGrid.value,
-                snapGrid.value,
-              )
+              lastPos = pos
+            }
+          },
+          onEnd(position, event) {
+            if ((event.target as Element).className.includes(noDragClassName as any)) return
+            if (disabled) return
 
-              pos.x -= parentPos.x
-              pos.y -= parentPos.y
-
-              // skip events without movement
-              if (lastPos.x !== pos.x || lastPos.y !== pos.y) {
-                if (lastPos.x && lastPos.y) {
-                  onDrag(event, {
-                    dx: pos.x - lastPos.x,
-                    dy: pos.y - lastPos.y,
-                  })
-                }
-
-                lastPos = pos
-              }
-            })
-            .on('end', onStop)
-            .filter((event: any) => !event.ctrlKey && !event.button && !event.target.className.includes(noDragClassName))
-
-          selection.call(dragHandler)
-        }
+            onStop(event)
+          },
+        })
       }
     },
     { flush: 'post' },

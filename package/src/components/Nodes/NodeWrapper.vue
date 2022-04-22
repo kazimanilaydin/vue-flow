@@ -91,6 +91,10 @@ useDrag({
   },
 })
 
+onBeforeMount(() => {
+  updateNodePosition({ id: node.id, diff: { x: 0, y: 0 } })
+})
+
 onMounted(() => {
   const observer = useResizeObserver(nodeElement, () =>
     updateNodeDimensions([{ id: node.id, nodeElement: nodeElement.value, forceUpdate: true }]),
