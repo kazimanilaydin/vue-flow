@@ -1,12 +1,25 @@
 <script lang="ts" setup>
-import { useDraggableCore } from '@braks/revue-draggable'
-import { useVueFlow } from '../../composables'
+import { useVueFlow, useDrag } from '../../composables'
 import { getRectOfNodes } from '../../utils'
 
 const { hooks, setState, viewport, getSelectedNodes, snapToGrid, snapGrid, updateNodePosition, noPanClassName } = $(useVueFlow())
 
 const el = templateRef<HTMLDivElement>('el', null)
 
+useDrag({
+  el,
+  onStart(event) {
+    hooks.selectionDragStart.trigger({ event: event.sourceEvent, nodes: getSelectedNodes })
+  },
+  onDrag(event, { dx, dy }) {
+    hooks.selectionDrag.trigger({ event: event.sourceEvent, nodes: getSelectedNodes })
+    updateNodePosition({ diff: { x: dx, y: dy }, dragging: true })
+  },
+  onStop(event) {
+    hooks.selectionDragStop.trigger({ event: event.sourceEvent, nodes: getSelectedNodes })
+    getSelectedNodes.forEach((node) => (node.dragging = false))
+  },
+})
 const selectedNodesBBox = $computed(() => getRectOfNodes(getSelectedNodes))
 
 const innerStyle = computed(() => ({
@@ -25,34 +38,6 @@ watch($$(selectedNodesBBox), (v) => {
 })
 
 const onContextMenu = (event: MouseEvent) => hooks.selectionContextMenu.trigger({ event, nodes: getSelectedNodes })
-
-const { onDragStart, onDrag, onDragStop, scale } = useDraggableCore(el, {
-  grid: snapToGrid ? snapGrid : undefined,
-  enableUserSelectHack: false,
-  scale: viewport.zoom,
-})
-
-onMounted(() => {
-  debouncedWatch(
-    () => viewport.zoom,
-    () => {
-      scale.value = viewport.zoom
-    },
-    { debounce: 5 },
-  )
-})
-
-onDragStart(({ event }) => hooks.selectionDragStart.trigger({ event, nodes: getSelectedNodes }))
-
-onDrag(({ event, data: { deltaX, deltaY } }) => {
-  hooks.selectionDrag.trigger({ event, nodes: getSelectedNodes })
-  updateNodePosition({ diff: { x: deltaX, y: deltaY }, dragging: true })
-})
-
-onDragStop(({ event }) => {
-  hooks.selectionDragStop.trigger({ event, nodes: getSelectedNodes })
-  getSelectedNodes.forEach((node) => (node.dragging = false))
-})
 </script>
 <script lang="ts">
 export default {

@@ -1,7 +1,6 @@
 <script lang="ts" setup>
-import { useDraggableCore } from '@braks/revue-draggable'
 import { CSSProperties } from 'vue'
-import { useVueFlow } from '../../composables'
+import { useVueFlow, useDrag } from '../../composables'
 import { GraphNode, NodeComponent, SnapGrid } from '../../types'
 import { NodeId, Slots } from '../../context'
 import { getHandleBounds, getXYZPos } from '../../utils'
@@ -33,6 +32,8 @@ const {
   getNode,
   getNodeTypes,
   addSelectedNodes,
+  multiSelectionActive,
+  resetSelectedElements,
 } = $(useVueFlow())
 
 let name = $ref(node.type ?? 'default')
@@ -43,52 +44,51 @@ watch(
 
 const nodeElement = ref()
 
-const { scale, disabled, handle, cancel, grid, onDrag, onDragStart, onDragStop } = useDraggableCore(nodeElement, {
-  handle: node.dragHandle,
-  disabled: !draggable,
-  grid: snapGrid,
-  cancel: `.${noDragClassName}`,
-  enableUserSelectHack: false,
-  scale: viewport.zoom,
-})
+useDrag({
+  id,
+  el: nodeElement,
+  disabled: computed(() => !draggable),
+  noDragClassName: $$(noDragClassName) as any,
+  handleSelector: node.dragHandle,
+  onStart(event) {
+    if (selectNodesOnDrag && selectable) {
+      setState({
+        nodesSelectionActive: false,
+      })
 
-onBeforeMount(() => {
-  updateNodePosition({ id: node.id, diff: { x: 0, y: 0 } })
-})
+      if (!node.selected) {
+        addSelectedNodes([node])
+      }
+    } else if (!selectNodesOnDrag && !node.selected && selectable) {
+      if (multiSelectionActive) {
+        addSelectedNodes([node])
+      } else {
+        resetSelectedElements()
+        setState({
+          nodesSelectionActive: false,
+        })
+      }
+    }
 
-onMounted(() => {
-  debouncedWatch(
-    () => viewport.zoom,
-    () => {
-      scale.value = viewport.zoom
-    },
-    { debounce: 5, flush: 'post' },
-  )
+    hooks.nodeDragStart.trigger({ event: event.sourceEvent, node })
+  },
+  onDrag(event, { dx, dy }) {
+    updateNodePosition({ id: node.id, diff: { x: dx, y: dy }, dragging: true })
+    hooks.nodeDrag.trigger({ event: event.sourceEvent, node })
+  },
+  onStop(event) {
+    if (!node.dragging) {
+      if (selectable && !selectNodesOnDrag && !node.selected) {
+        addSelectedNodes([node])
+      }
+      hooks.nodeClick.trigger({ event: event.sourceEvent, node })
+      return
+    }
 
-  watch(
-    () => draggable,
-    () => {
-      disabled.value = !draggable
-    },
-  )
+    updateNodePosition({ id: node.id, dragging: false })
 
-  watch(
-    () => node.dragHandle,
-    () => {
-      if (node.dragHandle) handle.value = node.dragHandle
-    },
-  )
-
-  watch($$(noDragClassName), () => {
-    if (noDragClassName) cancel.value = noDragClassName as any
-  })
-
-  watch(
-    () => snapGrid,
-    () => {
-      if (grid) grid.value = snapGrid
-    },
-  )
+    hooks.nodeDragStop.trigger({ event, node })
+  },
 })
 
 onMounted(() => {
@@ -128,7 +128,7 @@ watch(
       getNode(id)!.computedPosition = xyzPos
     }
 
-    getNode(id)!.handleBounds = getHandleBounds(nodeElement.value, scale.value)
+    getNode(id)!.handleBounds = getHandleBounds(nodeElement.value, viewport.zoom)
   },
   { deep: true, flush: 'post' },
 )
@@ -199,44 +199,6 @@ const type = computed(() => {
   }
 
   return slot
-})
-
-onDragStart(({ event }) => {
-  addSelectedNodes([])
-  hooks.nodeDragStart.trigger({ event, node })
-
-  if (selectNodesOnDrag && selectable) {
-    setState({
-      nodesSelectionActive: false,
-    })
-
-    if (!node.selected) addSelectedNodes([node])
-  } else if (!selectNodesOnDrag && !node.selected && selectable) {
-    setState({
-      nodesSelectionActive: false,
-    })
-
-    addSelectedNodes([])
-  }
-})
-
-onDrag(({ event, data: { deltaX, deltaY } }) => {
-  updateNodePosition({ id: node.id, diff: { x: deltaX, y: deltaY }, dragging: true })
-  hooks.nodeDrag.trigger({ event, node })
-})
-
-onDragStop(({ event, data: { deltaX, deltaY } }) => {
-  // onDragStop also gets called when user just clicks on a node.
-  // Because of that we set dragging to true inside the onDrag handler and handle the click here
-  if (!node.dragging) {
-    if (selectable && !selectNodesOnDrag && !node.selected) {
-      addSelectedNodes([node])
-    }
-    hooks.nodeClick.trigger({ event, node })
-    return
-  }
-  updateNodePosition({ id: node.id, diff: { x: deltaX, y: deltaY }, dragging: false })
-  hooks.nodeDragStop.trigger({ event, node })
 })
 
 const getClass = computed(() => {

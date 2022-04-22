@@ -34,7 +34,13 @@ const modelEdges = useVModel(props, 'edges', emit)
 
 const { id, hooks, getNodeTypes, getEdgeTypes, ...rest } = useVueFlow()
 
-const dispose = useWatch({ modelValue, nodes: modelNodes, edges: modelEdges }, props,{ id, hooks, getNodeTypes, getEdgeTypes, ...rest })
+const dispose = useWatch({ modelValue, nodes: modelNodes, edges: modelEdges }, props, {
+  id,
+  hooks,
+  getNodeTypes,
+  getEdgeTypes,
+  ...rest,
+})
 
 onUnmounted(() => {
   dispose()
