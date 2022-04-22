@@ -1,7 +1,6 @@
 <script lang="ts" setup>
-import { useDraggableCore } from '@braks/revue-draggable'
 import { CSSProperties } from 'vue'
-import { useVueFlow } from '../../composables'
+import { useVueFlow, useDrag } from '../../composables'
 import { GraphNode, NodeComponent, SnapGrid } from '../../types'
 import { NodeId } from '../../context'
 import { getHandleBounds, getXYZPos } from '../../utils'
@@ -34,59 +33,62 @@ const {
   getNode,
   getNodeTypes,
   addSelectedNodes,
+  multiSelectionActive,
+  resetSelectedElements,
 } = $(useVueFlow())
 
 const nodeElement = ref()
 
-const { scale, disabled, handle, cancel, grid, onDrag, onDragStart, onDragStop } = useDraggableCore(nodeElement, {
-  handle: node.dragHandle,
-  disabled: !draggable,
-  grid: snapGrid,
-  cancel: `.${noDragClassName}`,
-  enableUserSelectHack: false,
-  scale: viewport.zoom,
+useDrag({
+  id,
+  el: nodeElement,
+  disabled: computed(() => !draggable),
+  noDragClassName: $$(noDragClassName) as any,
+  handleSelector: node.dragHandle,
+  onStart(event) {
+    if (selectNodesOnDrag && selectable) {
+      setState({
+        nodesSelectionActive: false,
+      })
+
+      if (!node.selected) {
+        addSelectedNodes([node])
+      }
+    } else if (!selectNodesOnDrag && !node.selected && selectable) {
+      if (multiSelectionActive) {
+        addSelectedNodes([node])
+      } else {
+        resetSelectedElements()
+        setState({
+          nodesSelectionActive: false,
+        })
+      }
+    }
+
+    emits.nodeDragStart({ event: event.sourceEvent, node })
+  },
+  onDrag(event, { dx, dy }) {
+    updateNodePosition({ id: node.id, diff: { x: dx, y: dy }, dragging: true })
+    emits.nodeDrag({ event: event.sourceEvent, node })
+  },
+  onStop(event) {
+    if (!node.dragging) {
+      if (selectable && !selectNodesOnDrag && !node.selected) {
+        addSelectedNodes([node])
+      }
+      emits.nodeClick({ event: event.sourceEvent, node })
+      return
+    }
+
+    updateNodePosition({ id: node.id, dragging: false })
+
+    emits.nodeDragStop({ event: event.sourceEvent, node })
+  },
 })
 
 onBeforeMount(() => {
-  updateNodePosition({ id: node.id, diff: { x: 0, y: 0 } })
+  updateNodePosition({ id: node.id, diff: { x: 0, y: 0 }, dragging: false })
 })
-
-onMounted(() => {
-  debouncedWatch(
-    () => viewport.zoom,
-    () => {
-      scale.value = viewport.zoom
-    },
-    { debounce: 5, flush: 'post' },
-  )
-
-  watch(
-    () => draggable,
-    () => {
-      disabled.value = !draggable
-    },
-  )
-
-  watch(
-    () => node.dragHandle,
-    () => {
-      if (node.dragHandle) handle.value = node.dragHandle
-    },
-  )
-
-  watch($$(noDragClassName), () => {
-    if (noDragClassName) cancel.value = noDragClassName as any
-  })
-
-  watch(
-    () => snapGrid,
-    () => {
-      if (grid) grid.value = snapGrid
-    },
-  )
-})
-
-const parent = $computed(() => (node.parentNode ? getNode(node.parentNode) : undefined))
 
 onMounted(() => {
   const observer = useResizeObserver(nodeElement, () =>
@@ -106,7 +108,7 @@ onMounted(() => {
   updateNodeDimensions([{ id: node.id, nodeElement: nodeElement.value, forceUpdate: true }])
 
   watch(
-    [() => node.position, () => parent?.computedPosition, () => node.selected, () => parent?.selected],
+    [() => node.position, () => parentNode?.computedPosition, () => node.selected, () => parentNode?.selected],
     ([pos, parent]) => {
       const xyzPos = {
         ...pos,
@@ -120,7 +122,7 @@ onMounted(() => {
         graphNode.computedPosition = xyzPos
       }
 
-      graphNode.handleBounds = getHandleBounds(nodeElement.value, scale.value)
+      graphNode.handleBounds = getHandleBounds(nodeElement.value, viewport.zoom)
     },
     { deep: true, flush: 'post' },
   )
@@ -169,44 +171,6 @@ const onSelectNode = (event: MouseEvent) => {
     emits.nodeClick({ event, node })
   }
 }
-
-onDragStart(({ event }) => {
-  addSelectedNodes([])
-  emits.nodeDragStart({ event, node })
-
-  if (selectNodesOnDrag && selectable) {
-    setState({
-      nodesSelectionActive: false,
-    })
-
-    if (!node.selected) addSelectedNodes([node])
-  } else if (!selectNodesOnDrag && !node.selected && selectable) {
-    setState({
-      nodesSelectionActive: false,
-    })
-
-    addSelectedNodes([])
-  }
-})
-
-onDrag(({ event, data: { deltaX, deltaY } }) => {
-  updateNodePosition({ id: node.id, diff: { x: deltaX, y: deltaY }, dragging: true })
-  emits.nodeDrag({ event, node })
-})
-
-onDragStop(({ event, data: { deltaX, deltaY } }) => {
-  // onDragStop also gets called when user just clicks on a node.
-  // Because of that we set dragging to true inside the onDrag handler and handle the click here
-  if (!node.dragging) {
-    if (selectable && !selectNodesOnDrag && !node.selected) {
-      addSelectedNodes([node])
-    }
-    emits.nodeClick({ event, node })
-    return
-  }
-  updateNodePosition({ id: node.id, diff: { x: deltaX, y: deltaY }, dragging: false })
-  emits.nodeDragStop({ event, node })
-})
 
 const getClass = computed(() => {
   const extraClass = node.class instanceof Function ? node.class(node) : node.class
