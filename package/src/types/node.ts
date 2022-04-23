@@ -1,4 +1,4 @@
-import { Component, VNode } from 'vue'
+import { Component, TeleportProps, VNode } from 'vue'
 import { XYPosition, Position, SnapGrid, BaseElement, XYZPosition, Dimensions, ElementData } from './flow'
 import { DefaultNodeTypes, NodeComponent } from './components'
 import { HandleElement, ValidConnectionFunc } from './handle'
@@ -58,6 +58,9 @@ export interface Node<Data = ElementData> extends BaseElement<Data> {
 
   /** overwrites current node type */
   template?: NodeComponent
+
+  /** teleports node element to specified dom location */
+  teleport?: TeleportProps['to']
 }
 
 export interface GraphNode<Data = ElementData> extends Node<Data> {
