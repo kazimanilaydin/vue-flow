@@ -23,7 +23,7 @@ const window = useWindow()
 const defaultWidth = 200
 const defaultHeight = 150
 
-const { viewport, dimensions, hooks, getNodes } = $(useVueFlow())
+const { viewport, dimensions, emits, getNodes } = $(useVueFlow())
 
 const elementWidth = $computed(() => width ?? attrs.style?.width ?? defaultWidth)
 
@@ -85,11 +85,23 @@ const d = controlledComputed($$(viewBox), () => {
 })
 
 const onNodeClick = (event: MouseEvent, node: GraphNode) => {
-  hooks.miniMapNodeClick.trigger({ event, node })
+  emits.miniMapNodeClick({ event, node })
 }
 
 const onNodeDblClick = (event: MouseEvent, node: GraphNode) => {
-  hooks.miniMapNodeDoubleClick.trigger({ event, node })
+  emits.miniMapNodeDoubleClick({ event, node })
+}
+
+const onNodeMouseEnter = (event: MouseEvent, node: GraphNode) => {
+  emits.miniMapNodeDoubleClick({ event, node })
+}
+
+const onNodeMouseMove = (event: MouseEvent, node: GraphNode) => {
+  emits.miniMapNodeDoubleClick({ event, node })
+}
+
+const onNodeMouseLeave = (event: MouseEvent, node: GraphNode) => {
+  emits.miniMapNodeDoubleClick({ event, node })
 }
 </script>
 <script lang="ts">
@@ -120,6 +132,9 @@ export default {
       :shape-rendering="shapeRendering"
       @click="(e: MouseEvent) => onNodeClick(e, node)"
       @dblclick="(e: MouseEvent) => onNodeDblClick(e, node)"
+      @mouseenter="(e: MouseEvent) => onNodeMouseEnter(e, node)"
+      @mousemove="(e: MouseEvent) => onNodeMouseMove(e, node)"
+      @mouseleave="(e: MouseEvent) => onNodeMouseLeave(e, node)"
     >
       <slot
         :id="node.id"
